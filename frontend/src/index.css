@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* 
+@import "@fullcalendar/daygrid/main.css";
+@import "@fullcalendar/timegrid/main.css"; */
+
+/* ===== Custom FullCalendar with Tailwind Theme ===== */
+
+/* Toolbar */
+.fc .fc-toolbar.fc-header-toolbar {
+  @apply flex justify-between items-center mb-4;
+}
+
+.fc .fc-toolbar-title {
+  @apply text-xl font-semibold text-textcolor;
+}
+
+/* Buttons */
+.fc .fc-button {
+  @apply btn-secondary rounded-md text-sm font-medium px-3 py-1;
+  background: #f8fafc !important; /* background.card */
+  border: 1px solid #e2e8f0 !important; /* muted border */
+  color: #334155 !important; /* primary text */
+}
+
+.fc .fc-button:hover {
+  background: #f1f5f9 !important; /* background.hover */
+  color: #0ea5e9 !important; /* accent */
+}
+
+.fc .fc-button.fc-button-active {
+  background: #0ea5e9 !important; /* accent */
+  color: #fff !important;
+  border: none !important;
+}
+
+/* Today button */
+.fc .fc-today-button {
+  background: #334155 !important; /* primary */
+  color: #fff !important;
+  border-radius: 0.5rem !important;
+}
+
+/* Calendar Cells */
+.fc .fc-daygrid-day {
+  @apply border border-gray-100 text-textcolor-secondary;
+}
+
+.fc .fc-daygrid-day.fc-day-today {
+  @apply bg-accent/10 border-accent font-medium;
+}
+
+/* Events */
+.fc-event {
+  @apply rounded-md px-2 py-1 text-xs font-medium shadow-sm;
+  border: none !important;
+}
+
+.fc .fc-event-title {
+  @apply text-white truncate;
+}

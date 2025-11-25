@@ -1,0 +1,346 @@
+{
+  "info": {
+    "name": "retell-mern-backend",
+    "_postman_id": "retell-backend-collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3300" },
+    { "key": "token", "value": "" },
+    { "key": "supabaseUrl", "value": "https://YOUR-PROJECT.supabase.co" },
+    { "key": "serviceKey", "value": "" },
+    { "key": "restaurantId", "value": "" },
+    { "key": "clinicId", "value": "" },
+    { "key": "menuItemId1", "value": "" },
+    { "key": "menuItemId2", "value": "" },
+    { "key": "agentId", "value": "" },
+    { "key": "llmId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register (legacy - optional)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/register", "host": ["{{baseUrl}}"], "path": ["api","auth","register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"owner@example.com\",\"password\":\"password123\",\"name\":\"Owner\",\"globalRoles\":[\"admin\"],\"memberships\":[]}"
+            }
+          }
+        },
+        {
+          "name": "Register Owner (Restaurant)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/register-owner", "host": ["{{baseUrl}}"], "path": ["api","auth","register-owner"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"owner@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"Owner Name\",\n  \"phone\": \"+92-300-1234567\",\n  \"address\": \"Karachi\",\n  \"orgType\": \"Restaurant\",\n  \"org\": {\n    \"name\": \"Taste of Karachi\",\n    \"address\": \"Shahrah-e-Faisal\",\n    \"phone\": \"+92-300-4444444\"\n  },\n  \"menuItems\": [\n    { \"name\": \"Biryani\", \"price\": 350, \"category\": \"Mains\" },\n    { \"name\": \"Kebab\",   \"price\": 280, \"category\": \"Mains\" }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Register Owner (Clinic)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/register-owner", "host": ["{{baseUrl}}"], "path": ["api","auth","register-owner"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"dr.owner@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"Dr Owner\",\n  \"phone\": \"+92-300-8888888\",\n  \"address\": \"Lahore\",\n  \"orgType\": \"Clinic\",\n  \"org\": {\n    \"name\": \"City Care Clinic\",\n    \"address\": \"Gulberg\",\n    \"phone\": \"+92-300-7777777\"\n  },\n  \"services\": [\n    { \"name\": \"General Consultation\", \"durationMinutes\": 30, \"price\": 2000 },\n    { \"name\": \"Dental Checkup\",       \"durationMinutes\": 45, \"price\": 5000 }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api","auth","login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"owner@example.com\",\"password\":\"password123\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "if (json && json.token) {",
+                  "  pm.collectionVariables.set('token', json.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Profile (me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api","auth","me"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Restaurants",
+      "item": [
+        {
+          "name": "List Restaurants",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/restaurants", "host": ["{{baseUrl}}"], "path": ["api","restaurants"] } }
+        },
+        {
+          "name": "Create Restaurant (auth)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/restaurants", "host": ["{{baseUrl}}"], "path": ["api","restaurants"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Demo Diner\",\"address\":\"Main St\",\"phone\":\"+10000000000\"}"
+            }
+          }
+        },
+        {
+          "name": "List Menu (by Restaurant)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/menu", "host": ["{{baseUrl}}"], "path": ["api","restaurants","{{restaurantId}}","menu"] }
+          }
+        },
+        {
+          "name": "Create Menu Item (auth + role owner/manager)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/menu-items", "host": ["{{baseUrl}}"], "path": ["api","restaurants","{{restaurantId}}","menu-items"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Club Sandwich\",\"description\":\"Grilled chicken, veggies\",\"price\":850,\"category\":\"Mains\"}"
+            }
+          }
+        },
+        {
+          "name": "List Orders (by Restaurant)",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/orders", "host": ["{{baseUrl}}"], "path": ["api","restaurants","{{restaurantId}}","orders"] } }
+        }
+      ]
+    },
+    {
+      "name": "Clinics",
+      "item": [
+        {
+          "name": "List Clinics",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/clinics", "host": ["{{baseUrl}}"], "path": ["api","clinics"] } }
+        },
+        {
+          "name": "Create Clinic (auth)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/clinics", "host": ["{{baseUrl}}"], "path": ["api","clinics"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"name\":\"Demo Clinic\", \"address\":\"Health Ave\", \"phone\":\"+10000000001\", \"services\":[{\"name\":\"General Consultation\",\"durationMinutes\":30,\"price\":2000}] }"
+            }
+          }
+        },
+        {
+          "name": "List Appointments (by Clinic)",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/clinics/{{clinicId}}/appointments", "host": ["{{baseUrl}}"], "path": ["api","clinics","{{clinicId}}","appointments"] } }
+        }
+      ]
+    },
+    {
+      "name": "Calls",
+      "item": [
+        {
+          "name": "Create Outbound Call (Retell SDK)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/calls", "host": ["{{baseUrl}}"], "path": ["api","calls"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"to_number\": \"+12137774445\", \"from_number\": \"+14157774444\", \"override_agent_id\": \"your_agent_id_if_needed\" }"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Working Hours (Supabase REST)",
+      "item": [
+        {
+          "name": "Create Working Hour",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "apikey", "value": "{{serviceKey}}" },
+              { "key": "Authorization", "value": "Bearer {{serviceKey}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Prefer", "value": "return=representation" }
+            ],
+            "url": { "raw": "{{supabaseUrl}}/rest/v1/clinic_working_hours", "host": ["{{supabaseUrl}}"], "path": ["rest","v1","clinic_working_hours"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clinic_id\": \"{{clinicId}}\",\n  \"weekday\": 1,\n  \"is_open\": true,\n  \"open_time\": \"09:00\",\n  \"close_time\": \"13:00\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Working Break",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "apikey", "value": "{{serviceKey}}" },
+              { "key": "Authorization", "value": "Bearer {{serviceKey}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Prefer", "value": "return=representation" }
+            ],
+            "url": { "raw": "{{supabaseUrl}}/rest/v1/clinic_working_breaks", "host": ["{{supabaseUrl}}"], "path": ["rest","v1","clinic_working_breaks"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clinic_id\": \"{{clinicId}}\",\n  \"weekday\": 1,\n  \"start_time\": \"13:00\",\n  \"end_time\": \"15:00\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Working Hours by Clinic & Weekday",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "apikey", "value": "{{serviceKey}}" },
+              { "key": "Authorization", "value": "Bearer {{serviceKey}}" }
+            ],
+            "url": {
+              "raw": "{{supabaseUrl}}/rest/v1/clinic_working_hours?clinic_id=eq.{{clinicId}}&weekday=eq.1",
+              "host": ["{{supabaseUrl}}"],
+              "path": ["rest","v1","clinic_working_hours"],
+              "query": [
+                { "key": "clinic_id", "value": "eq.{{clinicId}}" },
+                { "key": "weekday", "value": "eq.1" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Retell Agents",
+      "item": [
+        {
+          "name": "Create Agent for Clinic",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/retell/agents", "host": ["{{baseUrl}}"], "path": ["api","retell","agents"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clinic_id\": \"{{clinicId}}\",\n  \"agent\": {\n    \"agent_name\": \"CityCare Agent\",\n    \"voice_id\": \"11labs-Adrian\"\n  },\n  \"llm\": {\n    \"general_prompt\": \"You are a polite clinic receptionist who books appointments, verifies date/time, asks for name and phone, and confirms details succinctly.\",\n    \"begin_message\": \"Hello! Thanks for calling CityCare Clinic. How can I help you today?\",\n    \"model\": \"gpt-5-mini\",\n    \"default_dynamic_variables\": { \"clinic_name\": \"CityCare\" }\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Agent Prompt (Retell LLM)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/retell/agents/{{agentId}}/prompt", "host": ["{{baseUrl}}"], "path": ["api","retell","agents","{{agentId}}","prompt"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"llm_id\": \"{{llmId}}\",\n  \"general_prompt\": \"You are CityCare’s receptionist. Speak clearly, keep answers under 2 sentences, and always confirm date/time twice.\",\n  \"begin_message\": \"Hi! CityCare Clinic here — what time works for your visit?\",\n  \"model\": \"gpt-5\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Agent Properties (name/voice)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/retell/agents/{{agentId}}", "host": ["{{baseUrl}}"], "path": ["api","retell","agents","{{agentId}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"agent_name\": \"CityCare Reception (EN)\", \"voice_id\": \"11labs-Jessie\" }"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Retell (Testing)",
+      "item": [
+        {
+          "name": "Webhook: Call Events (test)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/retell/webhooks/call-events", "host": ["{{baseUrl}}"], "path": ["retell","webhooks","call-events"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"call_id\":\"test123\",\"from_number\":\"+1\",\"to_number\":\"+2\",\"direction\":\"inbound\",\"call_status\":\"ended\"}"
+            }
+          }
+        },
+        {
+          "name": "Function: bookAppointment (test)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/retell/functions/bookAppointment", "host": ["{{baseUrl}}"], "path": ["retell","functions","bookAppointment"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"call_id\": \"abc123\",\n  \"parameters\": {\n    \"clinic_id\": \"{{clinicId}}\",\n    \"desired_date\": \"2025-11-10\",\n    \"desired_time\": \"14:30\",\n    \"patient_name\": \"Alice\",\n    \"phone\": \"+923001234567\",\n    \"service\": \"general_checkup\"\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Function: placeOrder (test)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/retell/functions/placeOrder", "host": ["{{baseUrl}}"], "path": ["retell","functions","placeOrder"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"call_id\": \"abc123\",\n  \"parameters\": {\n    \"restaurant_id\": \"{{restaurantId}}\",\n    \"items\": [\n      { \"menu_item_id\": \"{{menuItemId1}}\", \"name\":\"Biryani\", \"price\": 350, \"quantity\": 2 },\n      { \"menu_item_id\": \"{{menuItemId2}}\", \"name\":\"Kebab\",   \"price\": 280, \"quantity\": 1 }\n    ],\n    \"customer_name\": \"Bob\",\n    \"phone\": \"+923003333333\",\n    \"delivery_or_pickup\": \"delivery\",\n    \"address\": \"Karachi\"\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Function: getAvailableSlots (test) – with working hours",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/retell/functions/getAvailableSlots", "host": ["{{baseUrl}}"], "path": ["retell","functions","getAvailableSlots"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"call_id\": \"abc123\",\n  \"parameters\": {\n    \"clinic_id\": \"{{clinicId}}\",\n    \"date\": \"2025-11-10\",\n    \"service_name\": \"General Consultation\"\n  }\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

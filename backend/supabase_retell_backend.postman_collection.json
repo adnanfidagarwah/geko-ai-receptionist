@@ -1,0 +1,335 @@
+{
+  "info": {
+    "name": "supabase-retell-backend",
+    "_postman_id": "supabase-retell-collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "restaurantId",
+      "value": ""
+    },
+    {
+      "key": "clinicId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register Owner (Restaurant)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register-owner",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register-owner"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"owner@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"Owner\",\n  \"orgType\": \"Restaurant\",\n  \"org\": {\"name\": \"Taste of Karachi\"},\n  \"menuItems\": [{\"name\": \"Biryani\", \"price\": 350}]\n}"
+            }
+          }
+        },
+        {
+          "name": "Register Owner (Clinic)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register-owner",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register-owner"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"dr.owner@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"Dr\",\n  \"orgType\": \"Clinic\",\n  \"org\": {\"name\": \"City Care Clinic\"},\n  \"services\": [{\"name\": \"General Consultation\", \"durationMinutes\": 30, \"price\": 2000}]\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"owner@example.com\",\"password\":\"password123\"}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Restaurants",
+      "item": [
+        {
+          "name": "List Restaurants",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/restaurants",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "restaurants"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Menu",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/restaurants/{{restaurantId}}/menu",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "restaurants",
+                "{{restaurantId}}",
+                "menu"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Clinics",
+      "item": [
+        {
+          "name": "List Clinics",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/clinics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "clinics"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Appointments",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/clinics/{{clinicId}}/appointments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "clinics",
+                "{{clinicId}}",
+                "appointments"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Calls",
+      "item": [
+        {
+          "name": "Create Outbound Call",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/calls",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "calls"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"to_number\":\"+12137774445\",\"from_number\":\"+14157774444\"}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Retell (Testing)",
+      "item": [
+        {
+          "name": "Webhook: Call Events",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/retell/webhooks/call-events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "retell",
+                "webhooks",
+                "call-events"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"call_id\":\"test123\",\"from_number\":\"+1\",\"to_number\":\"+2\",\"direction\":\"inbound\",\"call_status\":\"ended\"}"
+            }
+          }
+        },
+        {
+          "name": "Function: bookAppointment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/retell/functions/bookAppointment",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "retell",
+                "functions",
+                "bookAppointment"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"call_id\":\"abc123\",\n  \"parameters\":{\n    \"clinic_id\":\"{{clinicId}}\",\n    \"desired_date\":\"2025-11-10\",\n    \"desired_time\":\"14:30\",\n    \"patient_name\":\"Alice\",\n    \"phone\":\"+923001234567\",\n    \"service\":\"general_checkup\"\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Function: placeOrder",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/retell/functions/placeOrder",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "retell",
+                "functions",
+                "placeOrder"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"call_id\":\"abc123\",\n  \"parameters\":{\n    \"restaurant_id\":\"{{restaurantId}}\",\n    \"items\":[{\"name\":\"Biryani\",\"price\":350,\"quantity\":2}],\n    \"customer_name\":\"Bob\",\n    \"phone\":\"+923003333333\",\n    \"delivery_or_pickup\":\"pickup\"\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Function: getAvailableSlots",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/retell/functions/getAvailableSlots",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "retell",
+                "functions",
+                "getAvailableSlots"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"call_id\":\"abc123\",\"parameters\":{\"date\":\"2025-11-10\"}}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
