@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import {jwtDecode} from "jwt-decode";
-
+import logo from "../assets/logo.png";
 const allNavItems = [
   { name: "Overview", path: "/", icon: LayoutDashboard, roles: ["owner", "staff"], orgs: ["Clinic", "Restaurant"] },
   { name: "Receptionist Settings", path: "/agent-settings", icon: Sparkles, roles: ["owner"], orgs: ["Clinic", ""] },
@@ -82,13 +82,13 @@ export default function Sidebar({ mobileOpen, setMobileOpen, collapsed }) {
               alt="Logo"
               className="h-8 w-8 object-contain"
             /> */}
-            <HeadphoneOff className="h-6 w-6 text-primary" />
+            <img src={logo} width={155} height={32} />
             {!collapsed && (
               <div>
-                <h1 className="text-lg font-semibold text-primary whitespace-nowrap">
+                {/* <h1 className="text-lg font-semibold text-primary whitespace-nowrap">
                   Voice Receptionist
                 </h1>
-                <p className="text-xs text-muted">Business Portal</p>
+                <p className="text-xs text-muted">Business Portal</p> */}
               </div>
             )}
           </div>

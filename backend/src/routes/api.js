@@ -3,7 +3,7 @@ import { Router } from "express";
 import { register, login, registerWithOrg, getProfile, logout } from "../controllers/authController.js";
 import { authRequired } from "../middlewares/auth.js";
 import { requireOrgRole } from "../middlewares/authz.js";
-import { listRestaurants, createRestaurant, listMenu, createMenuItem, listClinics, createClinic, listOrdersByRestaurant, listAppointmentsByClinic, listPatientsByClinic, listCustomersByRestaurant, listUpsellsByRestaurant } from "../controllers/businessController.js";
+import { listRestaurants, createRestaurant, listMenu, createMenuItem, listClinics, createClinic, listOrdersByRestaurant, updateOrder, listAppointmentsByClinic, listPatientsByClinic, listCustomersByRestaurant, listUpsellsByRestaurant } from "../controllers/businessController.js";
 import { listCalls, createOutboundCall } from "../controllers/callController.js";
 import {
   listWorkingHours,
@@ -30,6 +30,7 @@ router.post("/restaurants", authRequired, createRestaurant);
 router.get("/restaurants/:id/menu", listMenu);
 router.post("/restaurants/:id/menu-items", authRequired, requireOrgRole({ paramOrgId: "id", orgModel: "Restaurant", roles: ["owner", "manager"] }), createMenuItem);
 router.get("/restaurants/:id/orders", listOrdersByRestaurant);
+router.patch("/restaurants/:id/orders/:orderId", authRequired, requireOrgRole({ paramOrgId: "id", orgModel: "Restaurant", roles: ["owner", "manager"] }), updateOrder);
 router.get("/restaurants/:id/customers", listCustomersByRestaurant);
 router.get("/restaurants/:id/upsells", listUpsellsByRestaurant);
 

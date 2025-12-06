@@ -15,6 +15,7 @@ export const appApi = createApi({
     "Patients",
     "Restaurants",
     "Menu",
+    "Orders",
     "Upsells",
   ],
   endpoints: (builder) => ({
@@ -47,6 +48,20 @@ export const appApi = createApi({
       query: (restaurantId) => ({ url: `/restaurants/${restaurantId}/orders` }),
       transformResponse: (response) => response?.orders ?? [],
       providesTags: (result, error, restaurantId) => [
+        { type: "Orders", id: restaurantId },
+      ],
+    }),
+
+    updateOrderStatus: builder.mutation({
+      query: (payload) => {
+        const { restaurantId, orderId, ...updates } = payload ?? {};
+        return {
+          url: `/restaurants/${restaurantId}/orders/${orderId}`,
+          method: "PATCH",
+          data: updates,
+        };
+      },
+      invalidatesTags: (result, error, { restaurantId }) => [
         { type: "Orders", id: restaurantId },
       ],
     }),
@@ -268,6 +283,7 @@ export const {
   useGetRestaurantMenuQuery,
   useCreateMenuItemMutation,
   useGetRestaurantOrdersQuery,
+  useUpdateOrderStatusMutation,
   useGetRestaurantCustomersQuery,
   useGetRestaurantUpsellsQuery,
   // Voices

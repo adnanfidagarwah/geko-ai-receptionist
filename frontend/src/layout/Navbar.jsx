@@ -49,16 +49,16 @@ export default function Navbar({ setMobileOpen, collapsed, setCollapsed }) {
       </div>
 
       <div className="flex items-center space-x-4">
-        <div className="relative hidden md:block">
+        {/* <div className="relative hidden md:block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted pointer-events-none" />
           <input
             type="text"
             placeholder="Search..."
             className="w-64 pl-10 pr-4 py-1 rounded-md outline outline-1 outline-muted text-sm text-textcolor transition"
           />
-        </div>
+        </div> */}
 
-        <div className="md:hidden flex items-center">
+        {/* <div className="md:hidden flex items-center">
           {!mobileSearchOpen ? (
             <button
               className="p-2 rounded-full hover:bg-background-hover"
@@ -84,7 +84,7 @@ export default function Navbar({ setMobileOpen, collapsed, setCollapsed }) {
               </button>
             </div>
           )}
-        </div>
+        </div> */}
 
         <button className="p-2 rounded-full hover:bg-background-hover">
           <Bell className="h-5 w-5 text-primary" />

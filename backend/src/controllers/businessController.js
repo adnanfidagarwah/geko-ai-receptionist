@@ -58,6 +58,83 @@ export async function listOrdersByRestaurant(req, res) {
   res.json({ orders: data });
 }
 
+export async function updateOrder(req, res) {
+  const { id: restaurantId, orderId } = req.params;
+  const body = req.body || {};
+
+  const allowedStatuses = new Set(["pending", "confirmed", "preparing", "ready", "completed", "cancelled", "out_for_delivery", "delivered"]);
+  const allowedFulfillment = new Set(["delivery", "pickup"]);
+
+  const updates = {};
+
+  if (Object.prototype.hasOwnProperty.call(body, "customer_name")) {
+    updates.customer_name = body.customer_name;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "customer_phone")) {
+    updates.customer_phone = body.customer_phone;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "items")) {
+    if (!Array.isArray(body.items)) {
+      return res.status(400).json({ error: "items must be an array" });
+    }
+    updates.items = body.items;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "total_amount")) {
+    const total = Number(body.total_amount);
+    if (!Number.isFinite(total)) {
+      return res.status(400).json({ error: "total_amount must be numeric" });
+    }
+    updates.total_amount = total;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "delivery_address")) {
+    updates.delivery_address = body.delivery_address;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "delivery_or_pickup")) {
+    const fulfillment = String(body.delivery_or_pickup || "").trim().toLowerCase();
+    if (!allowedFulfillment.has(fulfillment)) {
+      return res.status(400).json({ error: "delivery_or_pickup must be delivery or pickup" });
+    }
+    updates.delivery_or_pickup = fulfillment;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "estimated_time")) {
+    updates.estimated_time = body.estimated_time || null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "status")) {
+    const status = String(body.status || "").trim().toLowerCase();
+    if (!allowedStatuses.has(status)) {
+      return res.status(400).json({ error: "Unsupported status value" });
+    }
+    updates.status = status;
+  }
+
+  if (!Object.keys(updates).length) {
+    return res.status(400).json({ error: "No updatable fields provided" });
+  }
+
+  updates.updated_at = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("orders")
+    .update(updates)
+    .eq("id", orderId)
+    .eq("restaurant_id", restaurantId)
+    .select()
+    .single();
+
+  if (error?.code === "PGRST116") return res.status(404).json({ error: "Order not found" });
+  if (error) return res.status(400).json({ error: error.message });
+  if (!data) return res.status(404).json({ error: "Order not found" });
+
+  res.json({ order: data });
+}
+
 export async function listCustomersByRestaurant(req, res) {
   const { id } = req.params;
   const { data, error } = await supabase
