@@ -17,6 +17,7 @@ export const appApi = createApi({
     "Menu",
     "Orders",
     "Upsells",
+    "RestaurantSettings",
   ],
   endpoints: (builder) => ({
     getRestaurants: builder.query({
@@ -79,6 +80,25 @@ export const appApi = createApi({
       transformResponse: (response) => response?.upsells ?? [],
       providesTags: (result, error, restaurantId) => [
         { type: "Upsells", id: restaurantId },
+      ],
+    }),
+
+    getRestaurantAiSettings: builder.query({
+      query: (restaurantId) => ({ url: `/restaurants/${restaurantId}/settings` }),
+      transformResponse: (response) => response?.settings ?? { upsellPrompt: "" },
+      providesTags: (result, error, restaurantId) => [
+        { type: "RestaurantSettings", id: restaurantId },
+      ],
+    }),
+
+    saveRestaurantAiSettings: builder.mutation({
+      query: ({ restaurantId, settings }) => ({
+        url: `/restaurants/${restaurantId}/settings`,
+        method: "PUT",
+        data: settings,
+      }),
+      invalidatesTags: (result, error, { restaurantId }) => [
+        { type: "RestaurantSettings", id: restaurantId },
       ],
     }),
 
@@ -286,6 +306,8 @@ export const {
   useUpdateOrderStatusMutation,
   useGetRestaurantCustomersQuery,
   useGetRestaurantUpsellsQuery,
+  useGetRestaurantAiSettingsQuery,
+  useSaveRestaurantAiSettingsMutation,
   // Voices
   useGetVoicesQuery,
   // Agents

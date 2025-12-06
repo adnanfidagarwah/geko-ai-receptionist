@@ -56,6 +56,19 @@ const findConflicts = (reservations = [], start, durationMinutes) => {
   });
 };
 
+const normalizePhoneValue = (value) => {
+  if (value === null || value === undefined) return null;
+  const digits = String(value).replace(/\D/g, "");
+  if (!digits) return null;
+  if (digits.startsWith("00") && digits.length > 2) {
+    return `+${digits.slice(2)}`;
+  }
+  if (digits.length === 10) {
+    return `+1${digits}`;
+  }
+  return `+${digits}`;
+};
+
 const loadNearbyReservations = async ({ restaurantId, windowStart, windowEnd }) => {
   const { data, error } = await supabase
     .from("restaurant_reservations")
@@ -69,13 +82,15 @@ const loadNearbyReservations = async ({ restaurantId, windowStart, windowEnd }) 
 };
 
 const ensureRestaurantCustomer = async ({ restaurantId, name, phone, email }) => {
-  if (!restaurantId || !phone) return;
+  if (!restaurantId) return;
+  const normalizedPhone = normalizePhoneValue(phone);
+  if (!normalizedPhone) return;
   const now = new Date().toISOString();
   const { data: existing, error } = await supabase
     .from("restaurant_customers")
     .select("id,total_orders")
     .eq("restaurant_id", restaurantId)
-    .eq("phone", phone)
+    .eq("phone", normalizedPhone)
     .maybeSingle();
   if (error && error.code !== "PGRST116") {
     throw new Error(error.message);
@@ -87,6 +102,7 @@ const ensureRestaurantCustomer = async ({ restaurantId, name, phone, email }) =>
       .update({
         full_name: name || null,
         email: email || null,
+        phone: normalizedPhone,
         last_order_at: now,
         total_orders: Number(existing.total_orders || 0) + 1,
         updated_at: now,
@@ -100,7 +116,7 @@ const ensureRestaurantCustomer = async ({ restaurantId, name, phone, email }) =>
     {
       restaurant_id: restaurantId,
       full_name: name || null,
-      phone,
+      phone: normalizedPhone,
       email: email || null,
       last_order_at: now,
       total_orders: 1,

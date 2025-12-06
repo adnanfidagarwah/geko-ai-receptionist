@@ -19,6 +19,7 @@ create table if not exists restaurants (
   name text not null,
   address text,
   phone text,
+  upsell_prompt text,
   reservation_enabled boolean default true,
   agent_id text,
   llm_id text,

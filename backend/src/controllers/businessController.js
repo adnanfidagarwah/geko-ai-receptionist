@@ -1,5 +1,47 @@
 
 import { supabase } from "../config/supabase.js";
+import { retellClient } from "../config/retell.js";
+import { composeRestaurantPrompt } from "../utils/restaurantPromptComposer.js";
+
+const selectRestaurantBaseFields = [
+  "id",
+  "name",
+  "address",
+  "phone",
+  "agent_id",
+  "llm_id",
+  "upsell_prompt",
+];
+
+async function rebuildRestaurantPrompt(restaurant, overrideSettings = {}) {
+  if (!restaurant?.id || !restaurant.llm_id) {
+    return { updated: false };
+  }
+
+  const { data: menuItems = [], error: menuError } = await supabase
+    .from("menu_items")
+    .select("id,name,description,price,category,created_at")
+    .eq("restaurant_id", restaurant.id)
+    .limit(50);
+
+  if (menuError) throw new Error(menuError.message);
+
+  const settings =
+    overrideSettings && Object.keys(overrideSettings).length
+      ? overrideSettings
+      : restaurant.upsell_prompt
+        ? { upsellTips: restaurant.upsell_prompt }
+        : {};
+
+  const general_prompt = composeRestaurantPrompt({
+    restaurant,
+    menu: menuItems ?? [],
+    settings,
+  });
+
+  await retellClient.llm.update(restaurant.llm_id, { general_prompt });
+  return { updated: true };
+}
 
 export async function listRestaurants(req, res) {
   const { data, error } = await supabase.from("restaurants").select("*").order("created_at", { ascending: false });
@@ -179,4 +221,87 @@ export async function listPatientsByClinic(req, res) {
   if (error) return res.status(500).json({ error: error.message });
 
   res.json({ patients: data ?? [] });
+}
+
+export async function getRestaurantSettings(req, res) {
+  const { id } = req.params;
+  if (!id) return res.status(400).json({ error: "restaurant id is required" });
+
+  const { data, error } = await supabase
+    .from("restaurants")
+    .select(selectRestaurantBaseFields.join(","))
+    .eq("id", id)
+    .single();
+
+  if (error?.code === "PGRST116") return res.status(404).json({ error: "Restaurant not found" });
+  if (error) return res.status(400).json({ error: error.message });
+
+  res.json({
+    settings: { upsellPrompt: data?.upsell_prompt ?? "" },
+    restaurant: {
+      id: data?.id,
+      name: data?.name,
+      agent_id: data?.agent_id,
+      llm_id: data?.llm_id,
+    },
+  });
+}
+
+export async function saveRestaurantSettings(req, res) {
+  const { id } = req.params;
+  const { upsellPrompt } = req.body || {};
+
+  if (!id) return res.status(400).json({ error: "restaurant id is required" });
+
+  const trimmedPrompt =
+    typeof upsellPrompt === "string" ? upsellPrompt.trim() : upsellPrompt ?? "";
+  const normalizedPrompt = trimmedPrompt ? trimmedPrompt : null;
+
+  const { data: restaurant, error: restaurantError } = await supabase
+    .from("restaurants")
+    .select(selectRestaurantBaseFields.join(","))
+    .eq("id", id)
+    .single();
+
+  if (restaurantError?.code === "PGRST116") {
+    return res.status(404).json({ error: "Restaurant not found" });
+  }
+  if (restaurantError) return res.status(400).json({ error: restaurantError.message });
+
+  let agentUpdated = false;
+  if (restaurant.llm_id) {
+    try {
+      const { updated } = await rebuildRestaurantPrompt(
+        { ...restaurant, upsell_prompt: normalizedPrompt },
+        normalizedPrompt ? { upsellTips: normalizedPrompt } : {},
+      );
+      agentUpdated = updated;
+    } catch (error) {
+      console.error("Failed to update restaurant agent prompt", error?.message || error);
+      return res.status(502).json({
+        error: "Failed to update agent prompt. Please try again.",
+        details: error?.message,
+      });
+    }
+  }
+
+  const { data: updated, error: updateError } = await supabase
+    .from("restaurants")
+    .update({ upsell_prompt: normalizedPrompt, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select("id,name,upsell_prompt,agent_id,llm_id")
+    .single();
+
+  if (updateError) return res.status(400).json({ error: updateError.message });
+
+  res.json({
+    settings: { upsellPrompt: updated?.upsell_prompt ?? "" },
+    agentUpdated,
+    restaurant: {
+      id: updated?.id,
+      name: updated?.name,
+      agent_id: updated?.agent_id,
+      llm_id: updated?.llm_id,
+    },
+  });
 }

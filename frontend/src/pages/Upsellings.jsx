@@ -11,9 +11,12 @@ import {
   Loader2,
   DollarSign,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
   useGetRestaurantsQuery,
   useGetRestaurantUpsellsQuery,
+  useGetRestaurantAiSettingsQuery,
+  useSaveRestaurantAiSettingsMutation,
 } from "../features/api/appApi";
 import { selectAuth } from "../features/auth/authSlice";
 
@@ -57,6 +60,9 @@ const UpsellingsPage = () => {
   const { token } = useSelector(selectAuth);
   const [activeRestaurantId, setActiveRestaurantId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [upsellPromptDraft, setUpsellPromptDraft] = useState("");
+  const [promptDirty, setPromptDirty] = useState(false);
+  const [promptRestaurantId, setPromptRestaurantId] = useState(null);
 
   const preferredRestaurantId = useMemo(() => {
     if (!token) return null;
@@ -87,6 +93,38 @@ const UpsellingsPage = () => {
   const activeRestaurant =
     restaurants.find((restaurant) => restaurant.id === activeRestaurantId) ||
     restaurants[0];
+
+  const {
+    data: restaurantAiSettings,
+    isLoading: aiSettingsLoading,
+    isFetching: aiSettingsFetching,
+  } = useGetRestaurantAiSettingsQuery(activeRestaurantId, { skip: !activeRestaurantId });
+
+  const [saveRestaurantAiSettings, { isLoading: savePromptLoading }] =
+    useSaveRestaurantAiSettingsMutation();
+
+  const savedUpsellPrompt = restaurantAiSettings?.upsellPrompt ?? "";
+
+  useEffect(() => {
+    if (!activeRestaurantId) {
+      setUpsellPromptDraft("");
+      setPromptDirty(false);
+      setPromptRestaurantId(null);
+      return;
+    }
+
+    if (promptRestaurantId === activeRestaurantId && promptDirty) {
+      return;
+    }
+
+    setUpsellPromptDraft(savedUpsellPrompt);
+    setPromptDirty(false);
+    setPromptRestaurantId(activeRestaurantId);
+  }, [activeRestaurantId, promptRestaurantId, savedUpsellPrompt, promptDirty]);
+
+  const promptInputsDisabled = !activeRestaurantId || aiSettingsLoading;
+  const canSavePrompt = Boolean(promptDirty && activeRestaurantId && !savePromptLoading);
+  const showPromptSyncing = aiSettingsFetching && !savePromptLoading;
 
   const {
     data: upsells = [],
@@ -240,6 +278,36 @@ const UpsellingsPage = () => {
     );
   };
 
+  const handleSaveUpsellPrompt = async () => {
+    if (!activeRestaurantId) {
+      toast.error("Select a restaurant first.");
+      return;
+    }
+    try {
+      const response = await saveRestaurantAiSettings({
+        restaurantId: activeRestaurantId,
+        settings: { upsellPrompt: upsellPromptDraft },
+      }).unwrap();
+      const agentMessage = response?.agentUpdated
+        ? "Upsell prompt saved and agent updated."
+        : "Upsell prompt saved.";
+      toast.success(agentMessage);
+      setPromptDirty(false);
+    } catch (error) {
+      const message =
+        error?.data?.error ||
+        error?.error ||
+        error?.message ||
+        "Failed to save upsell prompt.";
+      toast.error(message);
+    }
+  };
+
+  const handleResetUpsellPrompt = () => {
+    setUpsellPromptDraft(savedUpsellPrompt);
+    setPromptDirty(false);
+  };
+
   return (
     <div className="space-y-6 p-6">
       <header className="flex flex-col gap-4 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
@@ -251,6 +319,65 @@ const UpsellingsPage = () => {
         </div>
         {badge}
       </header>
+
+      <section className="rounded-2xl border border-background-hover bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted">Upselling guidance</p>
+            <h2 className="text-lg font-semibold text-primary-dark">Custom prompt</h2>
+            <p className="text-sm text-textcolor-secondary">
+              Tell your AI host exactly what to pitch or how to describe add-ons.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleResetUpsellPrompt}
+              disabled={!promptDirty || promptInputsDisabled || savePromptLoading}
+              className="rounded-xl border border-background-hover px-4 py-2 text-sm font-medium text-primary-dark transition hover:border-primary disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Reset
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveUpsellPrompt}
+              disabled={!canSavePrompt}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:bg-primary/50"
+            >
+              {savePromptLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Saving…
+                </>
+              ) : (
+                "Save prompt"
+              )}
+            </button>
+          </div>
+        </div>
+        <textarea
+          value={upsellPromptDraft}
+          onChange={(event) => {
+            setUpsellPromptDraft(event.target.value);
+            setPromptDirty(true);
+          }}
+          rows={4}
+          disabled={promptInputsDisabled}
+          className="mt-4 w-full rounded-2xl border border-background-hover px-4 py-3 text-sm text-primary-dark shadow-inner focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-gray-50"
+          placeholder="Ex: Offer dessert flights to parties celebrating anniversaries. Mention the chef’s tasting menu when callers ask about date nights."
+        />
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-textcolor-secondary">
+          <span>
+            {promptInputsDisabled
+              ? "Select a restaurant to edit its upsell script."
+              : "Changes autosave to the cloud once you click Save prompt."}
+          </span>
+          {showPromptSyncing ? (
+            <span className="inline-flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin" /> Syncing settings…
+            </span>
+          ) : null}
+        </div>
+      </section>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-background-hover bg-white p-4 shadow-sm">
