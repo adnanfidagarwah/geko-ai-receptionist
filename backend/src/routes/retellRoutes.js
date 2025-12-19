@@ -21,6 +21,7 @@ import {
 } from "../controllers/retellToolsController.js";
 import {
   toolGetMenu,
+  toolGetRestaurantCustomerByPhone,
   toolCheckTableAvailability,
   toolCreateReservation,
   toolPlaceOrder,
@@ -34,6 +35,7 @@ router.post("/functions/get_patient_by_phone", toolGetPatientByPhone);
 router.post("/functions/find_slots", toolFindSlots);
 router.post("/functions/create_appointment", toolCreateAppointment);
 router.post("/functions/get_services", toolGetServices);
+router.post("/functions/get_customer_by_phone", toolGetRestaurantCustomerByPhone);
 router.post("/functions/get_menu", toolGetMenu);
 router.post("/functions/check_table_availability", toolCheckTableAvailability);
 router.post("/functions/create_reservation", toolCreateReservation);

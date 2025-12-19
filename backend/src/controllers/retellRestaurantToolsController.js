@@ -68,6 +68,36 @@ const normalizePhoneValue = (value) => {
   }
   return `+${digits}`;
 };
+const normalizeDigits = (value) =>
+  typeof value === "string" && value ? value.replace(/\D+/g, "") : "";
+const collectPhoneCandidates = (...values) => {
+  const set = new Set();
+  values.forEach((value) => {
+    if (typeof value !== "string") return;
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    set.add(trimmed);
+
+    const normalized = normalizePhoneValue(trimmed);
+    if (normalized) set.add(normalized);
+
+    const digits = normalizeDigits(trimmed);
+    if (digits) {
+      set.add(digits);
+      if (!digits.startsWith("+")) {
+        set.add(`+${digits}`);
+      }
+      if (digits.length === 11 && digits.startsWith("1")) {
+        const stripped = digits.slice(1);
+        if (stripped) {
+          set.add(stripped);
+          set.add(`+${stripped}`);
+        }
+      }
+    }
+  });
+  return Array.from(set);
+};
 
 const loadNearbyReservations = async ({ restaurantId, windowStart, windowEnd }) => {
   const { data, error } = await supabase
@@ -194,6 +224,133 @@ const logRestaurantUpsell = async ({
     console.warn("Failed to log restaurant upsell", error?.message || error);
   }
 };
+
+export async function toolGetRestaurantCustomerByPhone(req, res) {
+  try {
+    const parameters = extractParameters(req);
+    const body = normalizeRequestBody(req);
+    const callPayload = body?.call || {};
+    const metadataPayload = callPayload?.metadata || body?.metadata || {};
+
+    const phoneHints = [
+      parameters.caller_phone,
+      parameters.customer_phone,
+      parameters.phone,
+      parameters.from_number,
+      parameters.to_number,
+      body?.caller_phone,
+      body?.customer_phone,
+      body?.phone,
+      body?.from_number,
+      body?.to_number,
+      body?.metadata?.caller_phone,
+      body?.metadata?.from_number,
+      callPayload?.caller_phone,
+      callPayload?.from_number,
+      callPayload?.to_number,
+      metadataPayload?.caller_phone,
+      metadataPayload?.from_number,
+    ].filter((value) => typeof value === "string" && value.trim());
+
+    const rawCallerPhone = phoneHints[0];
+    if (!rawCallerPhone) {
+      return respondError(res, "caller_phone is required");
+    }
+
+    const { restaurantId } = await resolveRestaurantContext(req, parameters.restaurant_id);
+    if (!restaurantId) {
+      return respondError(res, "restaurant_id could not be resolved", "BAD_REQUEST");
+    }
+
+    const phoneCandidates = collectPhoneCandidates(...phoneHints);
+
+    let customerRow = null;
+    if (phoneCandidates.length) {
+      const { data, error } = await supabase
+        .from("restaurant_customers")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .in("phone", phoneCandidates)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error && error.code !== "PGRST116") {
+        throw new Error(error.message);
+      }
+      customerRow = data;
+    }
+
+    if (customerRow) {
+      return res.json({
+        success: true,
+        customer: {
+          id: customerRow.id || null,
+          full_name: customerRow.full_name || customerRow.name || null,
+          phone: customerRow.phone || rawCallerPhone,
+          email: customerRow.email || null,
+          total_orders: customerRow.total_orders || null,
+          last_order_at: customerRow.last_order_at || customerRow.updated_at || null,
+          notes: customerRow.notes || null,
+        },
+      });
+    }
+
+    const orderSelect = "id, customer_name, customer_phone, delivery_or_pickup, total_amount, updated_at, created_at";
+    let orderRow = null;
+    if (phoneCandidates.length) {
+      const { data, error } = await supabase
+        .from("orders")
+        .select(orderSelect)
+        .eq("restaurant_id", restaurantId)
+        .in("customer_phone", phoneCandidates)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error && error.code !== "PGRST116") {
+        throw new Error(error.message);
+      }
+      orderRow = data;
+    }
+
+    if (!orderRow) {
+      const digits = normalizeDigits(rawCallerPhone);
+      if (digits) {
+        const { data, error } = await supabase
+          .from("orders")
+          .select(orderSelect)
+          .eq("restaurant_id", restaurantId)
+          .ilike("customer_phone", `%${digits}%`)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error && error.code !== "PGRST116") {
+          throw new Error(error.message);
+        }
+        orderRow = data;
+      }
+    }
+
+    if (orderRow) {
+      return res.json({
+        success: true,
+        customer: {
+          id: null,
+          full_name: orderRow.customer_name || null,
+          phone: orderRow.customer_phone || rawCallerPhone,
+          email: null,
+          last_order_at: orderRow.updated_at || orderRow.created_at || null,
+          last_order_id: orderRow.id || null,
+          last_order_total: orderRow.total_amount || null,
+          last_order_mode: orderRow.delivery_or_pickup || "pickup",
+        },
+      });
+    }
+
+    return respondError(res, "Customer not found", "NOT_FOUND");
+  } catch (error) {
+    return respondError(res, error.message, "SERVER_ERROR");
+  }
+}
 
 export async function toolGetMenu(req, res) {
   try {

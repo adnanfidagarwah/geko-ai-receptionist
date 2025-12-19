@@ -109,6 +109,31 @@ const buildClinicTools = ({ baseUrl, secret }) => ([
 const buildRestaurantTools = ({ baseUrl, secret }) => ([
   {
     type: "custom",
+    name: "get_customer_by_phone",
+    description: "Find existing restaurant customer by phone number",
+    url: `${baseUrl}/retell/functions/get_customer_by_phone`,
+    method: "POST",
+    parameter_type: "json",
+    args_at_root: false,
+    headers: { "x-retell-secret": secret },
+    speak_during_execution: true,
+    execution_message_description: "Let me check our guest list.",
+    speak_after_execution: true,
+    timeout_ms: 120000,
+    parameters: {
+      type: "object",
+      required: ["restaurant_id", "caller_phone"],
+      properties: {
+        restaurant_id: { type: "string" },
+        caller_phone: {
+          type: "string",
+          description: "Caller number (raw or E.164); we will normalize",
+        },
+      },
+    },
+  },
+  {
+    type: "custom",
     name: "get_menu",
     description: "Fetch current menu with categories and prices",
     url: `${baseUrl}/retell/functions/get_menu`,
