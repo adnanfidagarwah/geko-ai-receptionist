@@ -2,6 +2,7 @@
 import { supabase } from "../config/supabase.js";
 import { retellClient } from "../config/retell.js";
 import { composeRestaurantPrompt } from "../utils/restaurantPromptComposer.js";
+import { buildRetellTools } from "../utils/retell/toolsConfig.js";
 
 const selectRestaurantBaseFields = [
   "id",
@@ -13,7 +14,16 @@ const selectRestaurantBaseFields = [
   "upsell_prompt",
 ];
 
-async function rebuildRestaurantPrompt(restaurant, overrideSettings = {}) {
+const PUBLIC_BASE_RAW =
+  process.env.PUBLIC_API_BASE_URL ||
+  process.env.PUBLIC_API_BASE ||
+  process.env.API_BASE_URL ||
+  process.env.APP_URL ||
+  process.env.PUBLIC_URL ||
+  "";
+const PUBLIC_BASE = PUBLIC_BASE_RAW.replace(/\/$/, "");
+
+async function rebuildRestaurantPrompt(restaurant, overrideSettings = {}, options = {}) {
   if (!restaurant?.id || !restaurant.llm_id) {
     return { updated: false };
   }
@@ -39,8 +49,26 @@ async function rebuildRestaurantPrompt(restaurant, overrideSettings = {}) {
     settings,
   });
 
-  await retellClient.llm.update(restaurant.llm_id, { general_prompt });
-  return { updated: true };
+  const updatePayload = { general_prompt };
+  const includeTools = options?.includeTools === true;
+
+  if (includeTools) {
+    const baseUrl = PUBLIC_BASE || process.env.API_BASE_URL || "http://localhost:3300";
+    updatePayload.general_tools = buildRetellTools({
+      baseUrl,
+      secret: process.env.RETELL_TOOL_SECRET,
+      orgType: "Restaurant",
+    });
+    updatePayload.tool_call_strict_mode = true;
+    updatePayload.default_dynamic_variables = {
+      restaurant_id: restaurant.id,
+      restaurant_name: restaurant.name,
+      restaurant_phone: restaurant.phone,
+    };
+  }
+
+  await retellClient.llm.update(restaurant.llm_id, updatePayload);
+  return { updated: true, toolsUpdated: includeTools };
 }
 
 export async function listRestaurants(req, res) {
@@ -395,10 +423,15 @@ export async function refreshRestaurantPrompt(req, res) {
   }
 
   try {
-    const { updated } = await rebuildRestaurantPrompt(restaurant);
+    const { updated, toolsUpdated } = await rebuildRestaurantPrompt(
+      restaurant,
+      {},
+      { includeTools: true },
+    );
     return res.json({
       ok: true,
       updated,
+      toolsUpdated,
       restaurant: {
         id: restaurant.id,
         name: restaurant.name,

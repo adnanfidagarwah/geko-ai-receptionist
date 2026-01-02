@@ -122,12 +122,12 @@ const buildRestaurantTools = ({ baseUrl, secret }) => ([
     timeout_ms: 120000,
     parameters: {
       type: "object",
-      required: ["restaurant_id", "caller_phone"],
+      required: ["restaurant_id"],
       properties: {
         restaurant_id: { type: "string" },
         caller_phone: {
           type: "string",
-          description: "Caller number (raw or E.164); we will normalize",
+          description: "Caller number (raw or E.164); optional if caller ID is available",
         },
       },
     },
@@ -211,7 +211,7 @@ const buildRestaurantTools = ({ baseUrl, secret }) => ([
   {
     type: "custom",
     name: "place_order",
-    description: "Create a pickup or delivery order",
+    description: "Create a pickup or delivery order (caller phone optional for inbound calls)",
     url: `${baseUrl}/retell/functions/place_order`,
     method: "POST",
     parameter_type: "json",
@@ -243,7 +243,7 @@ const buildRestaurantTools = ({ baseUrl, secret }) => ([
         },
         customer: {
           type: "object",
-          required: ["full_name", "phone"],
+          required: ["full_name"],
           properties: {
             full_name: { type: "string" },
             phone: { type: "string" },

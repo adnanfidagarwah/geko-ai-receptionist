@@ -70,6 +70,42 @@ const normalizePhoneValue = (value) => {
 };
 const normalizeDigits = (value) =>
   typeof value === "string" && value ? value.replace(/\D+/g, "") : "";
+const PHONE_PLACEHOLDER_VALUES = new Set([
+  "caller",
+  "caller id",
+  "caller-id",
+  "caller_id",
+  "caller number",
+  "caller phone",
+  "same",
+  "same number",
+  "same as caller",
+  "unknown",
+  "n/a",
+  "na",
+  "none",
+  "null",
+  "undefined",
+  "not provided",
+  "not available",
+]);
+const sanitizePhoneInput = (value) => {
+  if (value === null || value === undefined) return null;
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+  const lowered = trimmed.toLowerCase();
+  if (PHONE_PLACEHOLDER_VALUES.has(lowered)) return null;
+  const digits = normalizeDigits(trimmed);
+  if (!digits) return null;
+  return trimmed;
+};
+const pickPhone = (...values) => {
+  for (const value of values) {
+    const sanitized = sanitizePhoneInput(value);
+    if (sanitized) return sanitized;
+  }
+  return null;
+};
 const collectPhoneCandidates = (...values) => {
   const set = new Set();
   values.forEach((value) => {
@@ -237,40 +273,42 @@ export async function toolGetRestaurantCustomerByPhone(req, res) {
 
     const preferredPhone =
       callDirection === "outbound"
-        ? parameters.caller_phone ||
-          parameters.to_number ||
-          parameters.toNumber ||
-          body?.to_number ||
-          body?.toNumber ||
-          body?.metadata?.to_number ||
-          body?.metadata?.toNumber ||
-          callPayload?.to_number ||
-          callPayload?.toNumber ||
-          callPayload?.metadata?.to_number ||
-          callPayload?.metadata?.toNumber ||
-          metadataPayload?.to_number ||
-          metadataPayload?.toNumber ||
-          metadataPayload?.caller_phone ||
-          body?.metadata?.caller_phone ||
-          null
-        : parameters.caller_phone ||
-          parameters.from_number ||
-          parameters.fromNumber ||
-          body?.from_number ||
-          body?.fromNumber ||
-          body?.metadata?.from_number ||
-          body?.metadata?.fromNumber ||
-          callPayload?.from_number ||
-          callPayload?.fromNumber ||
-          callPayload?.metadata?.from_number ||
-          callPayload?.metadata?.fromNumber ||
-          metadataPayload?.from_number ||
-          metadataPayload?.fromNumber ||
-          metadataPayload?.caller_phone ||
-          body?.metadata?.caller_phone ||
-          null;
+        ? pickPhone(
+            parameters.caller_phone,
+            parameters.to_number,
+            parameters.toNumber,
+            body?.to_number,
+            body?.toNumber,
+            body?.metadata?.to_number,
+            body?.metadata?.toNumber,
+            callPayload?.to_number,
+            callPayload?.toNumber,
+            callPayload?.metadata?.to_number,
+            callPayload?.metadata?.toNumber,
+            metadataPayload?.to_number,
+            metadataPayload?.toNumber,
+            metadataPayload?.caller_phone,
+            body?.metadata?.caller_phone,
+          )
+        : pickPhone(
+            parameters.caller_phone,
+            parameters.from_number,
+            parameters.fromNumber,
+            body?.from_number,
+            body?.fromNumber,
+            body?.metadata?.from_number,
+            body?.metadata?.fromNumber,
+            callPayload?.from_number,
+            callPayload?.fromNumber,
+            callPayload?.metadata?.from_number,
+            callPayload?.metadata?.fromNumber,
+            metadataPayload?.from_number,
+            metadataPayload?.fromNumber,
+            metadataPayload?.caller_phone,
+            body?.metadata?.caller_phone,
+          );
 
-    const phoneHints = [
+    const phoneHintValues = [
       parameters.caller_phone,
       parameters.customer_phone,
       parameters.phone,
@@ -304,9 +342,11 @@ export async function toolGetRestaurantCustomerByPhone(req, res) {
       metadataPayload?.fromNumber,
       metadataPayload?.to_number,
       metadataPayload?.toNumber,
-    ].filter((value) => typeof value === "string" && value.trim());
+    ]
+      .map(sanitizePhoneInput)
+      .filter(Boolean);
 
-    const rawCallerPhone = preferredPhone || phoneHints[0];
+    const rawCallerPhone = preferredPhone || phoneHintValues[0];
     if (!rawCallerPhone) {
       return respondError(res, "caller_phone is required");
     }
@@ -316,7 +356,7 @@ export async function toolGetRestaurantCustomerByPhone(req, res) {
       return respondError(res, "restaurant_id could not be resolved", "BAD_REQUEST");
     }
 
-    const phoneCandidates = collectPhoneCandidates(...phoneHints);
+    const phoneCandidates = collectPhoneCandidates(...phoneHintValues);
 
     let customerRow = null;
     if (phoneCandidates.length) {
@@ -660,51 +700,51 @@ export async function toolPlaceOrder(req, res) {
     const agentId = resolveAgentId();
 
     const resolveCustomerPhone = async () => {
-      const directPhone =
-        customer.phone ||
-        parameters.customer_phone ||
-        parameters.customerPhone ||
-        parameters.phone ||
-        parameters.contact_phone ||
-        parameters.caller_phone ||
-        parameters.callerPhone ||
-        body?.customer_phone ||
-        body?.caller_phone ||
-        body?.metadata?.caller_phone ||
-        body?.metadata?.phone_number ||
-        body?.call?.customer?.phone ||
-        body?.call?.metadata?.caller_phone ||
-        null;
+      const directPhone = pickPhone(
+        customer.phone,
+        parameters.customer_phone,
+        parameters.customerPhone,
+        parameters.phone,
+        parameters.contact_phone,
+        parameters.caller_phone,
+        parameters.callerPhone,
+        body?.customer_phone,
+        body?.caller_phone,
+        body?.metadata?.caller_phone,
+        body?.metadata?.phone_number,
+        body?.call?.customer?.phone,
+        body?.call?.metadata?.caller_phone,
+      );
 
       if (directPhone) return directPhone;
 
-      const fromNumber =
-        parameters.from_number ||
-        parameters.fromNumber ||
-        body?.from_number ||
-        body?.fromNumber ||
-        body?.metadata?.from_number ||
-        body?.metadata?.fromNumber ||
-        callPayload?.from_number ||
-        callPayload?.fromNumber ||
-        callPayload?.metadata?.from_number ||
-        callPayload?.metadata?.fromNumber ||
-        metadataPayload?.from_number ||
-        metadataPayload?.fromNumber ||
-        null;
+      const fromNumber = pickPhone(
+        parameters.from_number,
+        parameters.fromNumber,
+        body?.from_number,
+        body?.fromNumber,
+        body?.metadata?.from_number,
+        body?.metadata?.fromNumber,
+        callPayload?.from_number,
+        callPayload?.fromNumber,
+        callPayload?.metadata?.from_number,
+        callPayload?.metadata?.fromNumber,
+        metadataPayload?.from_number,
+        metadataPayload?.fromNumber,
+      );
 
-      const toNumber =
-        parameters.to_number ||
-        parameters.toNumber ||
-        body?.to_number ||
-        body?.toNumber ||
-        callPayload?.to_number ||
-        callPayload?.toNumber ||
-        callPayload?.metadata?.to_number ||
-        callPayload?.metadata?.toNumber ||
-        metadataPayload?.to_number ||
-        metadataPayload?.toNumber ||
-        null;
+      const toNumber = pickPhone(
+        parameters.to_number,
+        parameters.toNumber,
+        body?.to_number,
+        body?.toNumber,
+        callPayload?.to_number,
+        callPayload?.toNumber,
+        callPayload?.metadata?.to_number,
+        callPayload?.metadata?.toNumber,
+        metadataPayload?.to_number,
+        metadataPayload?.toNumber,
+      );
 
       const callDirection = String(
         callPayload?.direction || metadataPayload?.direction || body?.direction || body?.call?.direction || "",
@@ -720,10 +760,10 @@ export async function toolPlaceOrder(req, res) {
       if (callId && retellClient?.call?.retrieve) {
         try {
           const callDetails = await retellClient.call.retrieve(callId);
-          const fallbackFrom = callDetails?.from_number || null;
-          const fallbackTo = callDetails?.to_number || null;
-          if (callDirection === "outbound") return fallbackTo || fallbackFrom;
-          return fallbackFrom || fallbackTo;
+          const fallbackFrom = sanitizePhoneInput(callDetails?.from_number);
+          const fallbackTo = sanitizePhoneInput(callDetails?.to_number);
+          if (callDirection === "outbound") return fallbackTo || fallbackFrom || null;
+          return fallbackFrom || fallbackTo || null;
         } catch (error) {
           console.warn("Failed to fetch call details for phone fallback", error?.message || error);
         }

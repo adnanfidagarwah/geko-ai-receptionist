@@ -17,6 +17,9 @@ import Patients from "./pages/Patients";
 import Orders from "./pages/Orders";
 import Customers from "./pages/Customers";
 import Upsellings from "./pages/Upsellings";
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminRestaurants from "./pages/AdminRestaurants";
+import AdminClinics from "./pages/AdminClinics";
 
 function App() {
   return (
@@ -35,6 +38,9 @@ function App() {
             <Route path="/orders" element={<Orders />} />
             <Route path="/customers" element={<Customers />} />
             <Route path="/upsellings" element={<Upsellings />} />
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/restaurants" element={<AdminRestaurants />} />
+            <Route path="/admin/clinics" element={<AdminClinics />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/prompts" element={<PromptsFaq />} />
             <Route path="/agent-settings" element={<AgentSettings />} />

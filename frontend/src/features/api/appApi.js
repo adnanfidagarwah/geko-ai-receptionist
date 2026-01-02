@@ -14,6 +14,7 @@ export const appApi = createApi({
     "Appointments",
     "Patients",
     "Restaurants",
+    "Clinics",
     "Menu",
     "Orders",
     "Upsells",
@@ -24,6 +25,11 @@ export const appApi = createApi({
       query: () => ({ url: "/restaurants" }),
       transformResponse: (response) => response?.restaurants ?? [],
       providesTags: ["Restaurants"],
+    }),
+    getClinics: builder.query({
+      query: () => ({ url: "/clinics" }),
+      transformResponse: (response) => response?.clinics ?? [],
+      providesTags: ["Clinics"],
     }),
 
     getRestaurantMenu: builder.query({
@@ -337,6 +343,7 @@ export const appApi = createApi({
 
 export const {
   useGetRestaurantsQuery,
+  useGetClinicsQuery,
   useGetRestaurantMenuQuery,
   useCreateMenuItemMutation,
   useUpdateMenuItemMutation,

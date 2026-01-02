@@ -20,6 +20,9 @@ import { Link, useLocation } from "react-router-dom";
 import {jwtDecode} from "jwt-decode";
 import logo from "../assets/logo.png";
 const allNavItems = [
+  { name: "Admin Overview", path: "/admin", icon: LayoutDashboard, roles: ["admin"] },
+  { name: "Restaurants", path: "/admin/restaurants", icon: UtensilsCrossed, roles: ["admin"] },
+  { name: "Clinics", path: "/admin/clinics", icon: HeartPulse, roles: ["admin"] },
   { name: "Overview", path: "/", icon: LayoutDashboard, roles: ["owner", "staff"], orgs: ["Clinic", "Restaurant"] },
   { name: "Receptionist Settings", path: "/agent-settings", icon: Sparkles, roles: ["owner"], orgs: ["Clinic", ""] },
   { name: "Call History", path: "/calls-history", icon: PhoneCall, roles: ["owner", "staff"], orgs: ["Clinic", "Restaurant"] },
@@ -50,15 +53,19 @@ export default function Sidebar({ mobileOpen, setMobileOpen, collapsed }) {
   // ✅ Extract orgModel and role
   const orgModel = decoded?.orgModel || null;
   const role = decoded?.role || null;
+  const globalRoles = decoded?.globalRoles || [];
 
   // ✅ Filter nav items based on orgModel and role
   const navItems = useMemo(() => {
+    const roleSet = new Set(
+      [role, ...(Array.isArray(globalRoles) ? globalRoles : [])].filter(Boolean)
+    );
     return allNavItems.filter(
       (item) =>
         (!item.orgs || item.orgs.includes(orgModel)) &&
-        (!item.roles || item.roles.includes(role))
+        (!item.roles || item.roles.some((allowedRole) => roleSet.has(allowedRole)))
     );
-  }, [orgModel, role]);
+  }, [orgModel, role, globalRoles]);
 
   return (
     <>

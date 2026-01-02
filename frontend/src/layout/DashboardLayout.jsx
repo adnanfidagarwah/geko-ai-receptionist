@@ -24,8 +24,8 @@ export default function DashboardLayout() {
         <main
           className="flex-1 overflow-y-auto p-6 space-y-6 max-w-[1400px] mx-auto w-full"
           style={{
-            scrollbarWidth: "none", // Firefox
-            msOverflowStyle: "none", // IE & Edge
+            scrollbarWidth: "none", 
+            msOverflowStyle: "none", 
           }}
         >
           <style>{`main::-webkit-scrollbar { display: none; }`}</style>
