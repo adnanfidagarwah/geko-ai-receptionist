@@ -231,12 +231,12 @@ const buildRestaurantTools = ({ baseUrl, secret }) => ([
           minItems: 1,
           items: {
             type: "object",
-            required: ["name", "quantity"],
+            required: ["menu_item_id", "name", "quantity", "price"],
             properties: {
-              menu_item_id: { type: "string", nullable: true },
+              menu_item_id: { type: "string" },
               name: { type: "string" },
               quantity: { type: "integer", minimum: 1 },
-              price: { type: "number", nullable: true },
+              price: { type: "number" },
               notes: { type: "string", nullable: true },
             },
           },

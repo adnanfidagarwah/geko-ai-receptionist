@@ -70,6 +70,12 @@ const normalizePhoneValue = (value) => {
 };
 const normalizeDigits = (value) =>
   typeof value === "string" && value ? value.replace(/\D+/g, "") : "";
+const normalizeMenuName = (value = "") =>
+  String(value)
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/[^a-zA-Z0-9]+/g, " ")
+    .trim()
+    .toLowerCase();
 const PHONE_PLACEHOLDER_VALUES = new Set([
   "caller",
   "caller id",
@@ -633,42 +639,78 @@ export async function toolPlaceOrder(req, res) {
       return respondError(res, "items array is required");
     }
 
-    const menuItemIds = Array.from(
-      new Set(
-        items
-          .map((item) => item?.menu_item_id || item?.menuItemId)
-          .filter((value) => typeof value === "string" && value.trim()),
-      ),
-    );
+    const { data: menuRows = [], error: menuError } = await supabase
+      .from("menu_items")
+      .select("id, name, price, category")
+      .eq("restaurant_id", restaurantId);
+    if (menuError) throw new Error(menuError.message);
 
-    const categoryByMenuId = {};
-    if (menuItemIds.length) {
-      try {
-        const { data: menuRows = [] } = await supabase
-          .from("menu_items")
-          .select("id, category")
-          .in("id", menuItemIds);
-        menuRows.forEach((row) => {
-          if (row?.id) {
-            categoryByMenuId[row.id] = row.category || null;
-          }
-        });
-      } catch (error) {
-        console.warn("Failed to load menu categories for upsell inference", error?.message || error);
+    const menuById = new Map();
+    const menuByName = new Map();
+    menuRows.forEach((row) => {
+      if (!row?.id) return;
+      menuById.set(row.id, row);
+      const normalized = normalizeMenuName(row.name);
+      if (normalized && !menuByName.has(normalized)) {
+        menuByName.set(normalized, row);
       }
-    }
-
-    const itemsWithCategory = items.map((item) => {
-      const explicitCategory =
-        item.category ||
-        item.Category ||
-        item.category_label ||
-        item.categoryLabel ||
-        null;
-      const resolvedCategory =
-        explicitCategory || categoryByMenuId[item.menu_item_id] || categoryByMenuId[item.menuItemId] || null;
-      return { ...item, __category: resolvedCategory };
     });
+
+    const invalidItems = [];
+    const normalizedItems = items.map((item, index) => {
+      const menuItemId = item?.menu_item_id || item?.menuItemId || null;
+      const name = item?.name || "";
+      const explicitCategory =
+        item?.category ||
+        item?.Category ||
+        item?.category_label ||
+        item?.categoryLabel ||
+        null;
+
+      let matchedMenuItem = null;
+      if (menuItemId && menuById.has(menuItemId)) {
+        matchedMenuItem = menuById.get(menuItemId);
+      } else if (!menuItemId && name) {
+        matchedMenuItem = menuByName.get(normalizeMenuName(name)) || null;
+      }
+
+      if (!matchedMenuItem) {
+        invalidItems.push({
+          index,
+          name: name || null,
+          menu_item_id: menuItemId || null,
+        });
+        return null;
+      }
+
+      const menuPrice = Number(matchedMenuItem.price);
+      const resolvedPrice = Number.isFinite(menuPrice) ? menuPrice : Number(item?.price || 0);
+      if (!Number.isFinite(resolvedPrice) || resolvedPrice <= 0) {
+        invalidItems.push({
+          index,
+          name: name || matchedMenuItem.name || null,
+          menu_item_id: matchedMenuItem.id || menuItemId || null,
+        });
+        return null;
+      }
+
+      return {
+        ...item,
+        menu_item_id: matchedMenuItem.id,
+        menuItemId: undefined,
+        name: matchedMenuItem.name || name,
+        price: resolvedPrice,
+        __category: explicitCategory || matchedMenuItem.category || null,
+      };
+    }).filter(Boolean);
+
+    if (invalidItems.length) {
+      const labels = invalidItems
+        .map((entry) => entry.name || entry.menu_item_id || `item ${entry.index + 1}`)
+        .filter(Boolean)
+        .join(", ");
+      return respondError(res, `Menu item not found: ${labels}`, "ITEM_NOT_ON_MENU");
+    }
 
     const customer = parameters.customer || {};
     const customerName =
@@ -776,12 +818,15 @@ export async function toolPlaceOrder(req, res) {
     const deliveryAddress = parameters.delivery_address || parameters.address || null;
 
     const totalFromPayload = Number(parameters.total_amount);
-    const computedTotal = items.reduce((sum, item) => {
+    const computedTotal = normalizedItems.reduce((sum, item) => {
       const price = Number(item.price || 0);
       const quantity = Number(item.quantity || 1);
       return sum + price * quantity;
     }, 0);
-    const totalAmount = Number.isFinite(totalFromPayload) ? totalFromPayload : computedTotal;
+    const totalAmount =
+      Number.isFinite(totalFromPayload) && totalFromPayload > 0
+        ? totalFromPayload
+        : computedTotal;
 
     const { data, error } = await supabase
       .from("orders")
@@ -790,7 +835,7 @@ export async function toolPlaceOrder(req, res) {
           restaurant_id: restaurantId,
           customer_name: customerName,
           customer_phone: customerPhone,
-          items,
+          items: normalizedItems,
           total_amount: totalAmount,
           delivery_address: deliveryAddress,
           delivery_or_pickup: deliveryMode,
@@ -855,9 +900,9 @@ export async function toolPlaceOrder(req, res) {
           fallbackPrice: totalAmount,
           extraMetadata: {
             order_total: totalAmount,
-            item_count: items.length,
+            item_count: normalizedItems.length,
             delivery_mode: deliveryMode,
-            items,
+            items: normalizedItems,
           },
         }),
       );
@@ -868,9 +913,9 @@ export async function toolPlaceOrder(req, res) {
     }
 
     if (!upsellOrderPayload) {
-      const hasPrimaryItems = itemsWithCategory.some((item) => !isUpsellCategory(item.__category));
+      const hasPrimaryItems = normalizedItems.some((item) => !isUpsellCategory(item.__category));
       const inferredUpsellItems = hasPrimaryItems
-        ? itemsWithCategory.filter((item) => isUpsellCategory(item.__category))
+        ? normalizedItems.filter((item) => isUpsellCategory(item.__category))
         : [];
 
       if (inferredUpsellItems.length) {
@@ -895,9 +940,9 @@ export async function toolPlaceOrder(req, res) {
               },
               extraMetadata: {
                 order_total: totalAmount,
-                item_count: items.length,
+                item_count: normalizedItems.length,
                 delivery_mode: deliveryMode,
-                items,
+                items: normalizedItems,
               },
             }),
           ),
