@@ -150,6 +150,12 @@ export const appApi = createApi({
         method: "POST",
       }),
     }),
+    rebindRestaurantAgent: builder.mutation({
+      query: (restaurantId) => ({
+        url: `/restaurants/${restaurantId}/rebind-agent`,
+        method: "POST",
+      }),
+    }),
 
     // ============ VOICES ============
     getVoices: builder.query({
@@ -368,6 +374,7 @@ export const {
   useGetAgentsQuery,
   useCreateAgentMutation,
   useDeleteAgentMutation,
+  useRebindRestaurantAgentMutation,
   // Prompts
   useGetPromptsQuery,
   useCreatePromptMutation,

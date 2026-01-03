@@ -19,6 +19,7 @@ import {
   useSaveRestaurantAiSettingsMutation,
   useRefreshRestaurantPromptMutation,
   useRefreshRestaurantToolsMutation,
+  useRebindRestaurantAgentMutation,
 } from "../features/api/appApi";
 import { selectAuth } from "../features/auth/authSlice";
 
@@ -108,6 +109,8 @@ const UpsellingsPage = () => {
     useRefreshRestaurantPromptMutation();
   const [refreshRestaurantTools, { isLoading: refreshToolsLoading }] =
     useRefreshRestaurantToolsMutation();
+  const [rebindRestaurantAgent, { isLoading: rebindLoading }] =
+    useRebindRestaurantAgentMutation();
 
   const savedUpsellPrompt = restaurantAiSettings?.upsellPrompt ?? "";
 
@@ -352,6 +355,25 @@ const UpsellingsPage = () => {
     }
   };
 
+  const handleRebindAgent = async () => {
+    if (!activeRestaurantId) {
+      toast.error("Select a restaurant first.");
+      return;
+    }
+    try {
+      await rebindRestaurantAgent(activeRestaurantId).unwrap();
+      toast.success("Agent rebind complete.");
+    } catch (error) {
+      const message =
+        error?.data?.error ||
+        error?.data?.message ||
+        error?.error ||
+        error?.message ||
+        "Failed to rebind agent.";
+      toast.error(message);
+    }
+  };
+
   return (
     <div className="space-y-6 p-6">
       <header className="flex flex-col gap-4 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
@@ -408,6 +430,20 @@ const UpsellingsPage = () => {
                 </span>
               ) : (
                 "Refresh tools"
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={handleRebindAgent}
+              disabled={!activeRestaurantId || rebindLoading}
+              className="rounded-xl border border-background-hover px-4 py-2 text-sm font-medium text-primary-dark transition hover:border-primary disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {rebindLoading ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Rebinding…
+                </span>
+              ) : (
+                "Rebind agent"
               )}
             </button>
             <button
