@@ -112,6 +112,22 @@ const pickPhone = (...values) => {
   }
   return null;
 };
+const GENERIC_NAME_VALUES = new Set([
+  "guest",
+  "caller",
+  "customer",
+  "unknown",
+  "n/a",
+  "na",
+  "none",
+  "not provided",
+  "not available",
+]);
+const shouldUseFallbackName = (value) => {
+  if (!value) return true;
+  const normalized = String(value).trim().toLowerCase();
+  return !normalized || GENERIC_NAME_VALUES.has(normalized);
+};
 const collectPhoneCandidates = (...values) => {
   const set = new Set();
   values.forEach((value) => {
@@ -814,6 +830,30 @@ export async function toolPlaceOrder(req, res) {
     };
 
     const customerPhone = await resolveCustomerPhone();
+    let resolvedCustomerName = customerName;
+    if (customerPhone && shouldUseFallbackName(customerName)) {
+      try {
+        const phoneCandidates = collectPhoneCandidates(customerPhone);
+        if (phoneCandidates.length) {
+          const { data: existingCustomer, error: lookupError } = await supabase
+            .from("restaurant_customers")
+            .select("full_name")
+            .eq("restaurant_id", restaurantId)
+            .in("phone", phoneCandidates)
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (lookupError && lookupError.code !== "PGRST116") {
+            throw new Error(lookupError.message);
+          }
+          if (existingCustomer?.full_name) {
+            resolvedCustomerName = existingCustomer.full_name;
+          }
+        }
+      } catch (error) {
+        console.warn("Failed to resolve customer name from phone", error?.message || error);
+      }
+    }
     const deliveryMode = parameters.delivery_or_pickup || parameters.fulfillment || "pickup";
     const deliveryAddress = parameters.delivery_address || parameters.address || null;
 
@@ -833,7 +873,7 @@ export async function toolPlaceOrder(req, res) {
       .insert([
         {
           restaurant_id: restaurantId,
-          customer_name: customerName,
+          customer_name: resolvedCustomerName,
           customer_phone: customerPhone,
           items: normalizedItems,
           total_amount: totalAmount,
@@ -852,7 +892,7 @@ export async function toolPlaceOrder(req, res) {
       try {
         await ensureRestaurantCustomer({
           restaurantId,
-          name: customerName,
+          name: resolvedCustomerName,
           phone: customerPhone,
           email: customer.email || parameters.customer_email || null,
         });
@@ -870,7 +910,7 @@ export async function toolPlaceOrder(req, res) {
             callId,
             orderId: null,
             agentId,
-            customerName,
+            customerName: resolvedCustomerName,
             customerPhone,
             payload: attempt,
           }),
@@ -894,7 +934,7 @@ export async function toolPlaceOrder(req, res) {
           callId,
           orderId: data.id,
           agentId,
-          customerName,
+          customerName: resolvedCustomerName,
           customerPhone,
           payload: upsellOrderPayload,
           fallbackPrice: totalAmount,
@@ -926,7 +966,7 @@ export async function toolPlaceOrder(req, res) {
               callId,
               orderId: data.id,
               agentId,
-              customerName,
+              customerName: resolvedCustomerName,
               customerPhone,
               payload: {
                 label: item.name || item.offer_label || "Add-on",
