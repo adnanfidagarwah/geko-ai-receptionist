@@ -330,7 +330,7 @@ export async function toolGetRestaurantCustomerByPhone(req, res) {
             body?.metadata?.caller_phone,
           );
 
-    const phoneHintValues = [
+    let phoneHintValues = [
       parameters.caller_phone,
       parameters.customer_phone,
       parameters.phone,
@@ -368,7 +368,34 @@ export async function toolGetRestaurantCustomerByPhone(req, res) {
       .map(sanitizePhoneInput)
       .filter(Boolean);
 
-    const rawCallerPhone = preferredPhone || phoneHintValues[0];
+    const findCallId = () =>
+      parameters.call_id ||
+      parameters.callId ||
+      body?.call_id ||
+      body?.call?.call_id ||
+      body?.call?.id ||
+      null;
+
+    let rawCallerPhone = preferredPhone || phoneHintValues[0];
+    if (!rawCallerPhone) {
+      const callId = findCallId();
+      if (callId && retellClient?.call?.retrieve) {
+        try {
+          const callDetails = await retellClient.call.retrieve(callId);
+          const fallbackFrom = sanitizePhoneInput(callDetails?.from_number);
+          const fallbackTo = sanitizePhoneInput(callDetails?.to_number);
+          rawCallerPhone =
+            callDirection === "outbound"
+              ? pickPhone(fallbackTo, fallbackFrom)
+              : pickPhone(fallbackFrom, fallbackTo);
+          if (rawCallerPhone) {
+            phoneHintValues = [rawCallerPhone, ...phoneHintValues];
+          }
+        } catch (error) {
+          console.warn("Failed to fetch call details for phone fallback", error?.message || error);
+        }
+      }
+    }
     if (!rawCallerPhone) {
       return respondError(res, "caller_phone is required");
     }
