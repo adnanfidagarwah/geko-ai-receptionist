@@ -22,6 +22,7 @@ const PUBLIC_BASE_RAW =
   process.env.PUBLIC_URL ||
   "";
 const PUBLIC_BASE = PUBLIC_BASE_RAW.replace(/\/$/, "");
+const CALL_WEBHOOK_URL = PUBLIC_BASE ? `${PUBLIC_BASE}/retell/webhooks/call-events` : null;
 
 async function rebuildRestaurantPrompt(restaurant, overrideSettings = {}) {
   if (!restaurant?.id || !restaurant.llm_id) {
@@ -481,4 +482,148 @@ export async function refreshRestaurantTools(req, res) {
     console.error("Failed to refresh restaurant tools", err?.message || err);
     return res.status(502).json({ error: "Failed to refresh agent tools", details: err?.message });
   }
+}
+
+export async function rebindRestaurantAgent(req, res) {
+  const { id } = req.params;
+  if (!id) return res.status(400).json({ error: "restaurant id is required" });
+
+  const { data: restaurant, error } = await supabase
+    .from("restaurants")
+    .select(selectRestaurantBaseFields.join(","))
+    .eq("id", id)
+    .single();
+
+  if (error?.code === "PGRST116") {
+    return res.status(404).json({ error: "Restaurant not found" });
+  }
+  if (error) return res.status(400).json({ error: error.message });
+
+  let llmId = restaurant.llm_id || null;
+  let agentId = restaurant.agent_id || null;
+  let llmCreated = false;
+  let agentCreated = false;
+  let phoneReassignRequired = false;
+  let existingAgentType = null;
+
+  const settings = restaurant.upsell_prompt ? { upsellTips: restaurant.upsell_prompt } : {};
+  let agentDetails = null;
+  if (agentId) {
+    try {
+      agentDetails = await retellClient.agent.retrieve(agentId);
+      existingAgentType = agentDetails?.response_engine?.type || null;
+    } catch (error) {
+      console.warn("Failed to load existing agent details", error?.message || error);
+    }
+  }
+
+  if (!llmId) {
+    const { data: menuItems = [], error: menuError } = await supabase
+      .from("menu_items")
+      .select("id,name,description,price,category,created_at")
+      .eq("restaurant_id", restaurant.id)
+      .limit(50);
+    if (menuError) return res.status(400).json({ error: menuError.message });
+
+    const general_prompt = composeRestaurantPrompt({
+      restaurant,
+      menu: menuItems ?? [],
+      settings,
+    });
+    const baseUrl = PUBLIC_BASE || process.env.API_BASE_URL || "http://localhost:3300";
+    const general_tools = buildRetellTools({
+      baseUrl,
+      secret: process.env.RETELL_TOOL_SECRET,
+      orgType: "Restaurant",
+    });
+    const defaultModel = process.env.RETELL_LLM_MODEL || "gpt-4.1-mini";
+    const defaultRealtime = process.env.RETELL_S25_MODEL || "gpt-4o-realtime-preview";
+
+    const llmResp = await retellClient.llm.create({
+      general_prompt,
+      model: defaultModel,
+      s25_model: defaultRealtime,
+      model_temperature: 0.1,
+      general_tools,
+      tool_call_strict_mode: true,
+      default_dynamic_variables: {
+        restaurant_id: restaurant.id,
+        restaurant_name: restaurant.name,
+        restaurant_phone: restaurant.phone,
+      },
+    });
+
+    llmId = llmResp.llm_id;
+    llmCreated = true;
+
+    const { error: updateError } = await supabase
+      .from("restaurants")
+      .update({ llm_id: llmId })
+      .eq("id", restaurant.id);
+    if (updateError) return res.status(400).json({ error: updateError.message });
+  } else {
+    await rebuildRestaurantPrompt({ ...restaurant, llm_id: llmId }, settings);
+    await rebuildRestaurantTools({ ...restaurant, llm_id: llmId });
+  }
+
+  const agentName = `${restaurant.name || "Restaurant"} Host`;
+  const agentIsLlm = existingAgentType === "retell-llm";
+  const needsNewAgent = agentDetails && !agentIsLlm;
+  const voiceId =
+    agentDetails?.voice_id ||
+    process.env.RETELL_DEFAULT_VOICE_ID ||
+    process.env.RETELL_VOICE_ID ||
+    null;
+
+  if (agentId && !needsNewAgent) {
+    const updatePayload = {
+      response_engine: { type: "retell-llm", llm_id: llmId },
+      agent_name: agentName,
+    };
+    if (CALL_WEBHOOK_URL) updatePayload.webhook_url = CALL_WEBHOOK_URL;
+    await retellClient.agent.update(agentId, updatePayload);
+  } else {
+    if (!voiceId) {
+      return res.status(400).json({ error: "Restaurant is missing agent_id and no default voice configured" });
+    }
+    const agentResp = await retellClient.agent.create({
+      agent_name: agentName,
+      response_engine: { type: "retell-llm", llm_id: llmId },
+      voice_id: voiceId,
+      voice_temperature: 1,
+      voice_speed: 1,
+      volume: 1,
+      language: "en-US",
+      data_storage_setting: "everything",
+      start_speaker: "agent",
+      interruption_sensitivity: 0.9,
+      max_call_duration_ms: 3600000,
+      ...(CALL_WEBHOOK_URL ? { webhook_url: CALL_WEBHOOK_URL } : {}),
+    });
+    agentId = agentResp.agent_id;
+    agentCreated = true;
+    if (agentDetails) {
+      phoneReassignRequired = true;
+    }
+
+    const { error: updateAgentError } = await supabase
+      .from("restaurants")
+      .update({ agent_id: agentId })
+      .eq("id", restaurant.id);
+    if (updateAgentError) return res.status(400).json({ error: updateAgentError.message });
+  }
+
+  return res.json({
+    ok: true,
+    llm_created: llmCreated,
+    agent_created: agentCreated,
+    existing_agent_type: existingAgentType,
+    phone_reassign_required: phoneReassignRequired,
+    restaurant: {
+      id: restaurant.id,
+      name: restaurant.name,
+      agent_id: agentId,
+      llm_id: llmId,
+    },
+  });
 }

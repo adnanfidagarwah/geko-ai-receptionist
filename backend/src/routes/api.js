@@ -23,6 +23,7 @@ import {
   saveRestaurantSettings,
   refreshRestaurantPrompt,
   refreshRestaurantTools,
+  rebindRestaurantAgent,
 } from "../controllers/businessController.js";
 import { listCalls, createOutboundCall } from "../controllers/callController.js";
 import {
@@ -79,6 +80,12 @@ router.post(
   authRequired,
   requireOrgRole({ paramOrgId: "id", orgModel: "Restaurant", roles: ["owner", "manager", "staff"] }),
   refreshRestaurantTools,
+);
+router.post(
+  "/restaurants/:id/rebind-agent",
+  authRequired,
+  requireOrgRole({ paramOrgId: "id", orgModel: "Restaurant", roles: ["owner", "manager", "staff"] }),
+  rebindRestaurantAgent,
 );
 
 router.get("/clinics", listClinics);
