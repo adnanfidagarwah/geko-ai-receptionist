@@ -111,6 +111,7 @@ export const buildRestaurantPromptContext = ({ restaurant = {}, menu = [], setti
   return {
     AGENT_NAME: restaurant.agent_name || `${restaurant.name || "Restaurant"} Host`,
     BRAND_NAME: restaurant.name || "Your Restaurant",
+    RESTAURANT_ID: restaurant.id || "",
     LOCATION: locationLine,
     TIMEZONE: merged.timezone,
     HOURS_SUMMARY: hoursLine,
